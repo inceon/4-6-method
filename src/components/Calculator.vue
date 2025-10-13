@@ -158,7 +158,7 @@ export default {
 
     // 4:6 method: first 40% of water is for first two pours:
     step1() {
-      return Math.round(this.firstPartWater * this.taste);
+      return Math.round(this.firstPartWater * (1 - this.taste));
     },
     step2() {
       return this.firstPartWater - this.step1;
