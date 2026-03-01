@@ -165,14 +165,24 @@ export default {
     },
 
     // 4:6 method: rest 60% of water is distributed between 1-3 pours depending on desired strength:
+    secondPartPours() {
+      const pours = Number(this.strength);
+      const total = this.secondPartWater;
+      const base = Math.floor(total / pours);
+      const remainder = total % pours;
+
+      return Array.from({ length: pours }, (_, index) => {
+        return index < remainder ? base + 1 : base;
+      });
+    },
     step3() {
-      return Math.round(this.secondPartWater / this.strength);
+      return this.secondPartPours[0] || 0;
     },
     step4() {
-      return this.strength > 1 ? Math.round(this.secondPartWater / this.strength) : 0;
+      return this.secondPartPours[1] || 0;
     },
     step5() {
-      return this.secondPartWater - this.step3 - this.step4;
+      return this.secondPartPours[2] || 0;
     },
   }
 }
