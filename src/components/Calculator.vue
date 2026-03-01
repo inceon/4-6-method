@@ -66,7 +66,11 @@
           <button class="timer-btn" @click="pauseTimer" :disabled="!isTimerRunning">Pause</button>
           <button class="timer-btn" @click="resetTimer">Reset</button>
         </div>
-        <p class="timer-status">{{timerStatusMessage}}</p>
+        <label class="sound-toggle">
+          <input v-model="soundEnabled" type="checkbox">
+          Enable sound notifications
+        </label>
+        <p class="timer-status" :class="{ 'is-cue': activePourCue || isRemoveStepActive }">{{timerStatusMessage}}</p>
       </div>
       <table>
         <thead>
@@ -124,6 +128,8 @@ export default {
       strength: 3,
       elapsedSeconds: 0,
       timerInterval: null,
+      soundEnabled: false,
+      audioContext: null,
     }
   },
   watch: {
@@ -143,10 +149,16 @@ export default {
       if (this.isTimerRunning && this.elapsedSeconds >= newLimit) {
         this.pauseTimer();
       }
+    },
+    elapsedSeconds(newSeconds, previousSeconds) {
+      this.handleCueNotifications(previousSeconds, newSeconds);
     }
   },
   beforeUnmount() {
     this.pauseTimer();
+    if (this.audioContext && typeof this.audioContext.close === 'function') {
+      this.audioContext.close();
+    }
   },
   computed: {
     water() {
@@ -236,23 +248,39 @@ export default {
     isRemoveStepActive() {
       return this.elapsedSeconds >= this.removeDripperTimeSeconds;
     },
+    activePourCue() {
+      const cueDurationSeconds = 3;
+
+      for (let index = 0; index < this.pourPlan.length; index += 1) {
+        const pour = this.pourPlan[index];
+        if (
+          this.elapsedSeconds >= pour.timeSeconds &&
+          this.elapsedSeconds < pour.timeSeconds + cueDurationSeconds
+        ) {
+          return {
+            index,
+            ...pour,
+          };
+        }
+      }
+
+      return null;
+    },
     timerStatusMessage() {
+      if (this.elapsedSeconds >= this.removeDripperTimeSeconds) {
+        return 'Remove the dripper now.';
+      }
+
+      if (this.activePourCue) {
+        return `Pour ${this.activePourCue.index + 1} now (${this.activePourCue.amount}ml).`;
+      }
+
       if (!this.isTimerRunning && this.elapsedSeconds === 0) {
         return 'Press Start when you begin brewing.';
       }
 
       if (!this.isTimerRunning && this.elapsedSeconds < this.removeDripperTimeSeconds) {
         return 'Timer paused.';
-      }
-
-      if (this.elapsedSeconds >= this.removeDripperTimeSeconds) {
-        return 'Remove the dripper now.';
-      }
-
-      const currentPourIndex = this.pourPlan.findIndex((pour) => pour.timeSeconds === this.elapsedSeconds);
-      if (currentPourIndex !== -1) {
-        const currentPour = this.pourPlan[currentPourIndex];
-        return `Pour ${currentPourIndex + 1} now (${currentPour.amount}ml).`;
       }
 
       const nextPour = this.pourPlan.find((pour) => pour.timeSeconds > this.elapsedSeconds);
@@ -279,6 +307,9 @@ export default {
         return;
       }
 
+      this.ensureAudioContext();
+      this.handleCueNotifications(this.elapsedSeconds - 1, this.elapsedSeconds);
+
       this.timerInterval = setInterval(() => {
         const nextValue = this.elapsedSeconds + 1;
         if (nextValue >= this.removeDripperTimeSeconds) {
@@ -300,6 +331,62 @@ export default {
     resetTimer() {
       this.pauseTimer();
       this.elapsedSeconds = 0;
+    },
+    handleCueNotifications(previousSeconds, newSeconds) {
+      if (!this.soundEnabled) {
+        return;
+      }
+
+      const lastSeconds = typeof previousSeconds === 'number' ? previousSeconds : newSeconds - 1;
+      const notifications = this.pourPlan.map((pour) => ({
+        timeSeconds: pour.timeSeconds,
+        type: 'pour',
+      }));
+      notifications.push({
+        timeSeconds: this.removeDripperTimeSeconds,
+        type: 'finish',
+      });
+
+      notifications.forEach((notification) => {
+        if (lastSeconds < notification.timeSeconds && newSeconds >= notification.timeSeconds) {
+          this.playNotificationTone(notification.type);
+        }
+      });
+    },
+    ensureAudioContext() {
+      if (this.audioContext) {
+        if (this.audioContext.state === 'suspended') {
+          this.audioContext.resume();
+        }
+        return;
+      }
+
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextClass) {
+        this.audioContext = new AudioContextClass();
+      }
+    },
+    playNotificationTone(type) {
+      if (!this.audioContext) {
+        return;
+      }
+
+      const now = this.audioContext.currentTime;
+      const oscillator = this.audioContext.createOscillator();
+      const gain = this.audioContext.createGain();
+      const baseFrequency = type === 'finish' ? 640 : 880;
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(baseFrequency, now);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.2, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+
+      oscillator.connect(gain);
+      gain.connect(this.audioContext.destination);
+
+      oscillator.start(now);
+      oscillator.stop(now + 0.2);
     },
   }
 }
@@ -425,9 +512,24 @@ label {
 }
 
 .timer-status {
-  font-size: 13px;
+  font-size: 22px;
+  font-weight: 700;
   margin: 10px 0 0;
   text-align: center;
+}
+
+.timer-status.is-cue {
+  color: #1b4f91;
+}
+
+.sound-toggle {
+  align-items: center;
+  display: flex;
+  font-size: 13px;
+  font-weight: 400;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 10px;
 }
 
 .is-active {
