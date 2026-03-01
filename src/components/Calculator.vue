@@ -1,15 +1,35 @@
 <template>
   <div class="calculator">
+    <div class="language-float" :aria-label="t('language.label')" role="group">
+      <button
+        type="button"
+        class="language-link"
+        :class="{ 'is-active': locale === 'en' }"
+        @click="locale = 'en'"
+      >
+        EN
+      </button>
+      <span class="language-divider">|</span>
+      <button
+        type="button"
+        class="language-link"
+        :class="{ 'is-active': locale === 'uk' }"
+        @click="locale = 'uk'"
+      >
+        UA
+      </button>
+    </div>
+
     <div class="well">
-      <h2 class="title">Parameters</h2>
-      <label for="coffee">Coffee weight:</label>
+      <h2 class="title">{{t('title.parameters')}}</h2>
+      <label for="coffee">{{t('label.coffeeWeight')}}</label>
       <input type="number" v-model="coffee" id="coffee" class="form-control" min="10" max="60">
       <div class="taste-controls">
-        <label>Taste controls:</label>
+        <label>{{t('label.tasteControls')}}</label>
         <div class="slider-row">
           <div class="slider-title">
-            <span>Brighter</span>
-            <span>Sweeter</span>
+            <span>{{t('taste.brighter')}}</span>
+            <span>{{t('taste.sweeter')}}</span>
           </div>
           <input
             type="range"
@@ -22,9 +42,9 @@
         </div>
         <div class="slider-row">
           <div class="slider-title">
-            <span>Light</span>
-            <span>Medium</span>
-            <span>Strong</span>
+            <span>{{t('strength.light')}}</span>
+            <span>{{t('strength.medium')}}</span>
+            <span>{{t('strength.strong')}}</span>
           </div>
           <input
             class="slider-slider"
@@ -40,44 +60,44 @@
     </div>
 
     <div class="well">
-      <h2 class="title">Data</h2>
+      <h2 class="title">{{t('title.data')}}</h2>
       <table>
         <tr>
-          <td>Coffee</td>
-          <td>{{coffee}}g</td>
+          <td>{{t('data.coffee')}}</td>
+          <td>{{coffee}}{{t('unit.g')}}</td>
         </tr>
         <tr>
-          <td>Water</td>
-          <td>{{water}}ml</td>
+          <td>{{t('data.water')}}</td>
+          <td>{{water}}{{t('unit.ml')}}</td>
         </tr>
         <tr>
-          <td>Temperature</td>
-          <td>93°c</td>
+          <td>{{t('data.temperature')}}</td>
+          <td>93°C</td>
         </tr>
       </table>
     </div>
 
     <div class="well instructions">
-      <h2 class="title">Instructions</h2>
+      <h2 class="title">{{t('title.instructions')}}</h2>
       <div class="timer-box">
         <div class="timer-clock">{{formattedElapsedClock}}</div>
         <div class="timer-controls">
-          <button class="timer-btn" @click="startTimer" :disabled="isTimerRunning">Start</button>
-          <button class="timer-btn" @click="pauseTimer" :disabled="!isTimerRunning">Pause</button>
-          <button class="timer-btn" @click="resetTimer">Reset</button>
+          <button class="timer-btn" @click="startTimer" :disabled="isTimerRunning">{{t('button.start')}}</button>
+          <button class="timer-btn" @click="pauseTimer" :disabled="!isTimerRunning">{{t('button.pause')}}</button>
+          <button class="timer-btn" @click="resetTimer">{{t('button.reset')}}</button>
         </div>
         <label class="sound-toggle">
           <input v-model="soundEnabled" type="checkbox">
-          Enable sound notifications
+          {{t('label.enableSound')}}
         </label>
         <p class="timer-status" :class="{ 'is-cue': activePourCue || isRemoveStepActive }">{{timerStatusMessage}}</p>
       </div>
       <table>
         <thead>
           <tr>
-            <th>Total time</th>
-            <th>Water amount pound</th>
-            <th>Total Water amount</th>
+            <th>{{t('table.totalTime')}}</th>
+            <th>{{t('table.waterPerPour')}}</th>
+            <th>{{t('table.totalWater')}}</th>
           </tr>
         </thead>
         <tbody>
@@ -87,38 +107,40 @@
             :class="{ 'is-active': activePourIndex === index }"
           >
             <td>{{formatInstructionTime(pour.timeSeconds)}}</td>
-            <td>{{pour.amount}}ml</td>
-            <td>{{pour.cumulative}}ml</td>
+            <td>{{pour.amount}}{{t('unit.ml')}}</td>
+            <td>{{pour.cumulative}}{{t('unit.ml')}}</td>
           </tr>
           <tr :class="{ 'is-active': isRemoveStepActive }">
             <td>{{removeDripperTimeLabel}}</td>
             <td></td>
-            <td>Remove the dripper</td>
+            <td>{{t('action.removeDripper')}}</td>
           </tr>
         </tbody>
       </table>
     </div>
 
     <div class="description">
-      <h1>4:6 brewing method</h1>
-      <h2>How to brew with the “4:6 method”</h2>
+      <h1>{{t('desc.title')}}</h1>
+      <h2>{{t('desc.subtitle')}}</h2>
 
       <ol>
-        <li>Rinse the paper filter with hot water.</li>
-        <li>Divide the total amount of water to be poured into <strong>40%</strong> and <strong>60%</strong></li>
+        <li>{{t('desc.step.rinse')}}</li>
+        <li>{{t('desc.step.divide')}}</li>
       </ol>
 
-      <h2>Tips</h2>
+      <h2>{{t('desc.tipsTitle')}}</h2>
       <ul>
-        <li>Choose your preferred grind size. (Adjust the coarseness so that water atmost completely drips within this total time.)</li>
-        <li>The role of the first pour is to moisten the grounds.</li>
-        <li>Do not make the next pour untit the water completely drips through.</li>
+        <li>{{t('desc.tip.grind')}}</li>
+        <li>{{t('desc.tip.firstPour')}}</li>
+        <li>{{t('desc.tip.wait')}}</li>
       </ul>
     </div>
   </div>
 </template>
 
 <script>
+import TRANSLATIONS from '../i18n/translations';
+
 export default {
   name: 'Calculator',
   data() {
@@ -126,6 +148,7 @@ export default {
       coffee: 20,
       taste: 6/12,
       strength: 3,
+      locale: 'en',
       elapsedSeconds: 0,
       timerInterval: null,
       soundEnabled: false,
@@ -150,8 +173,36 @@ export default {
         this.pauseTimer();
       }
     },
+    locale: {
+      immediate: true,
+      handler(newLocale) {
+        if (typeof window === 'undefined') {
+          return;
+        }
+
+        const normalizedLocale = TRANSLATIONS[newLocale] ? newLocale : 'en';
+        window.localStorage.setItem('locale', normalizedLocale);
+        document.documentElement.lang = normalizedLocale;
+      },
+    },
     elapsedSeconds(newSeconds, previousSeconds) {
       this.handleCueNotifications(previousSeconds, newSeconds);
+    }
+  },
+  created() {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const storedLocale = window.localStorage.getItem('locale');
+    if (storedLocale && TRANSLATIONS[storedLocale]) {
+      this.locale = storedLocale;
+      return;
+    }
+
+    const browserLocale = (window.navigator.language || '').toLowerCase();
+    if (browserLocale.startsWith('uk')) {
+      this.locale = 'uk';
     }
   },
   beforeUnmount() {
@@ -268,39 +319,60 @@ export default {
     },
     timerStatusMessage() {
       if (this.elapsedSeconds >= this.removeDripperTimeSeconds) {
-        return 'Remove the dripper now.';
+        return this.t('status.removeNow');
       }
 
       if (this.activePourCue) {
-        return `Pour ${this.activePourCue.index + 1} now (${this.activePourCue.amount}ml).`;
+        return this.t('status.pourNow', {
+          index: this.activePourCue.index + 1,
+          amount: this.activePourCue.amount,
+          unit: this.t('unit.ml'),
+        });
       }
 
       if (!this.isTimerRunning && this.elapsedSeconds === 0) {
-        return 'Press Start when you begin brewing.';
+        return this.t('status.pressStart');
       }
 
       if (!this.isTimerRunning && this.elapsedSeconds < this.removeDripperTimeSeconds) {
-        return 'Timer paused.';
+        return this.t('status.paused');
       }
 
       const nextPour = this.pourPlan.find((pour) => pour.timeSeconds > this.elapsedSeconds);
       if (nextPour) {
-        return `Next pour in ${nextPour.timeSeconds - this.elapsedSeconds}s.`;
+        return this.t('status.nextPourIn', {
+          seconds: nextPour.timeSeconds - this.elapsedSeconds,
+          unit: this.t('time.secondShort'),
+        });
       }
 
-      return `Remove dripper in ${this.removeDripperTimeSeconds - this.elapsedSeconds}s.`;
+      return this.t('status.removeIn', {
+        seconds: this.removeDripperTimeSeconds - this.elapsedSeconds,
+        unit: this.t('time.secondShort'),
+      });
     },
   },
   methods: {
+    t(key, params = {}) {
+      const localeMessages = TRANSLATIONS[this.locale] || TRANSLATIONS.en;
+      const template = localeMessages[key] || TRANSLATIONS.en[key] || key;
+
+      return template.replace(/\{(\w+)\}/g, (full, token) => {
+        if (Object.prototype.hasOwnProperty.call(params, token)) {
+          return String(params[token]);
+        }
+        return full;
+      });
+    },
     formatInstructionTime(totalSeconds) {
       if (totalSeconds < 60) {
-        return `${totalSeconds}s`;
+        return `${totalSeconds}${this.t('time.secondShort')}`;
       }
 
       const minutes = Math.floor(totalSeconds / 60);
       const seconds = totalSeconds % 60;
 
-      return `${minutes}m${String(seconds).padStart(2, '0')}s`;
+      return `${minutes}${this.t('time.minuteShort')}${String(seconds).padStart(2, '0')}${this.t('time.secondShort')}`;
     },
     startTimer() {
       if (this.isTimerRunning) {
@@ -476,6 +548,36 @@ label {
 
 .taste-controls {
   padding-top: 20px;
+}
+
+.language-float {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  position: fixed;
+  right: 36px;
+  top: 36px;
+  z-index: 20;
+}
+
+.language-link {
+  background: none;
+  border: 0;
+  color: #2c3e50;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 5px 10px;
+}
+
+.language-link.is-active {
+  text-decoration: underline;
+}
+
+.language-divider {
+  color: #7a7a7a;
+  font-size: 12px;
 }
 
 .timer-box {
