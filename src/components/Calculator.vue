@@ -33,7 +33,7 @@
             min="1"
             max="3"
             step="1"
-            v-model="strength"
+            v-model.number="strength"
           >
         </div>
       </div>
@@ -59,6 +59,15 @@
 
     <div class="well instructions">
       <h2 class="title">Instructions</h2>
+      <div class="timer-box">
+        <div class="timer-clock">{{formattedElapsedClock}}</div>
+        <div class="timer-controls">
+          <button class="timer-btn" @click="startTimer" :disabled="isTimerRunning">Start</button>
+          <button class="timer-btn" @click="pauseTimer" :disabled="!isTimerRunning">Pause</button>
+          <button class="timer-btn" @click="resetTimer">Reset</button>
+        </div>
+        <p class="timer-status">{{timerStatusMessage}}</p>
+      </div>
       <table>
         <thead>
           <tr>
@@ -68,35 +77,17 @@
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td>0s</td>
-            <td>{{step1}}ml</td>
-            <td>{{step1}}ml</td>
+          <tr
+            v-for="(pour, index) in pourPlan"
+            :key="`pour-${index}`"
+            :class="{ 'is-active': activePourIndex === index }"
+          >
+            <td>{{formatInstructionTime(pour.timeSeconds)}}</td>
+            <td>{{pour.amount}}ml</td>
+            <td>{{pour.cumulative}}ml</td>
           </tr>
-          <tr>
-            <td>45s</td>
-            <td>{{step2}}ml</td>
-            <td>{{step1 + step2}}ml</td>
-          </tr>
-          <tr>
-            <td>1m30s</td>
-            <td>{{step3}}ml</td>
-            <td>{{step1 + step2 + step3}}ml</td>
-          </tr>
-          <tr v-if="step4 > 0">
-            <td>2m15s</td>
-            <td>{{step4}}ml</td>
-            <td>{{step1 + step2 + step3 + step4}}ml</td>
-          </tr>
-          <tr v-if="step5 > 0">
-            <td>3m00s</td>
-            <td>{{step5}}ml</td>
-            <td>{{step1 + step2 + step3 + step4 + step5}}ml</td>
-          </tr>
-          <tr>
-            <td v-if="strength == 3">3m45s</td>
-            <td v-if="strength == 2">3m00s</td>
-            <td v-if="strength == 1">2m15s</td>
+          <tr :class="{ 'is-active': isRemoveStepActive }">
+            <td>{{removeDripperTimeLabel}}</td>
             <td></td>
             <td>Remove the dripper</td>
           </tr>
@@ -131,6 +122,8 @@ export default {
       coffee: 20,
       taste: 6/12,
       strength: 3,
+      elapsedSeconds: 0,
+      timerInterval: null,
     }
   },
   watch: {
@@ -142,7 +135,18 @@ export default {
           this.$forceUpdate();
         });
       }
+    },
+    removeDripperTimeSeconds(newLimit) {
+      if (this.elapsedSeconds > newLimit) {
+        this.elapsedSeconds = newLimit;
+      }
+      if (this.isTimerRunning && this.elapsedSeconds >= newLimit) {
+        this.pauseTimer();
+      }
     }
+  },
+  beforeUnmount() {
+    this.pauseTimer();
   },
   computed: {
     water() {
@@ -183,6 +187,119 @@ export default {
     },
     step5() {
       return this.secondPartPours[2] || 0;
+    },
+    pourPlan() {
+      const amounts = [this.step1, this.step2, this.step3, this.step4, this.step5];
+      const times = [0, 45, 90, 135, 180];
+
+      let cumulative = 0;
+      return amounts
+        .filter((amount) => amount > 0)
+        .map((amount, index) => {
+          cumulative += amount;
+          return {
+            amount,
+            cumulative,
+            timeSeconds: times[index],
+          };
+        });
+    },
+    removeDripperTimeSeconds() {
+      return 90 + (Number(this.strength) * 45);
+    },
+    removeDripperTimeLabel() {
+      return this.formatInstructionTime(this.removeDripperTimeSeconds);
+    },
+    isTimerRunning() {
+      return this.timerInterval !== null;
+    },
+    formattedElapsedClock() {
+      const minutes = Math.floor(this.elapsedSeconds / 60);
+      const seconds = this.elapsedSeconds % 60;
+
+      return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    },
+    activePourIndex() {
+      for (let index = 0; index < this.pourPlan.length; index += 1) {
+        const currentTime = this.pourPlan[index].timeSeconds;
+        const nextTime = index === this.pourPlan.length - 1
+          ? this.removeDripperTimeSeconds
+          : this.pourPlan[index + 1].timeSeconds;
+
+        if (this.elapsedSeconds >= currentTime && this.elapsedSeconds < nextTime) {
+          return index;
+        }
+      }
+
+      return -1;
+    },
+    isRemoveStepActive() {
+      return this.elapsedSeconds >= this.removeDripperTimeSeconds;
+    },
+    timerStatusMessage() {
+      if (!this.isTimerRunning && this.elapsedSeconds === 0) {
+        return 'Press Start when you begin brewing.';
+      }
+
+      if (!this.isTimerRunning && this.elapsedSeconds < this.removeDripperTimeSeconds) {
+        return 'Timer paused.';
+      }
+
+      if (this.elapsedSeconds >= this.removeDripperTimeSeconds) {
+        return 'Remove the dripper now.';
+      }
+
+      const currentPourIndex = this.pourPlan.findIndex((pour) => pour.timeSeconds === this.elapsedSeconds);
+      if (currentPourIndex !== -1) {
+        const currentPour = this.pourPlan[currentPourIndex];
+        return `Pour ${currentPourIndex + 1} now (${currentPour.amount}ml).`;
+      }
+
+      const nextPour = this.pourPlan.find((pour) => pour.timeSeconds > this.elapsedSeconds);
+      if (nextPour) {
+        return `Next pour in ${nextPour.timeSeconds - this.elapsedSeconds}s.`;
+      }
+
+      return `Remove dripper in ${this.removeDripperTimeSeconds - this.elapsedSeconds}s.`;
+    },
+  },
+  methods: {
+    formatInstructionTime(totalSeconds) {
+      if (totalSeconds < 60) {
+        return `${totalSeconds}s`;
+      }
+
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+
+      return `${minutes}m${String(seconds).padStart(2, '0')}s`;
+    },
+    startTimer() {
+      if (this.isTimerRunning) {
+        return;
+      }
+
+      this.timerInterval = setInterval(() => {
+        const nextValue = this.elapsedSeconds + 1;
+        if (nextValue >= this.removeDripperTimeSeconds) {
+          this.elapsedSeconds = this.removeDripperTimeSeconds;
+          this.pauseTimer();
+          return;
+        }
+        this.elapsedSeconds = nextValue;
+      }, 1000);
+    },
+    pauseTimer() {
+      if (!this.timerInterval) {
+        return;
+      }
+
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+    },
+    resetTimer() {
+      this.pauseTimer();
+      this.elapsedSeconds = 0;
     },
   }
 }
@@ -272,6 +389,49 @@ label {
 
 .taste-controls {
   padding-top: 20px;
+}
+
+.timer-box {
+  border: 1px solid #eee;
+  border-radius: 5px;
+  margin-bottom: 16px;
+  padding: 12px;
+}
+
+.timer-clock {
+  font-size: 28px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.timer-controls {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.timer-btn {
+  background-color: #f5f5f5;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 6px 12px;
+}
+
+.timer-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.timer-status {
+  font-size: 13px;
+  margin: 10px 0 0;
+  text-align: center;
+}
+
+.is-active {
+  background-color: #f7fbff;
 }
 
 </style>
